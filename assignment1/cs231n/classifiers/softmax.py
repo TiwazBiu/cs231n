@@ -33,28 +33,22 @@ def softmax_loss_naive(W, X, y, reg):
   num_train = X.shape[0]
   dim = X.shape[1]
   num_classes = W.shape[1]
-
   for i in range(num_train):
-    scores = []
-    for j in range(num_classes):
-      score = X[i].dot(W[:,j])
-      scores.append(score)
+    scores = (X[i].dot(W)).reshape((-1,1))
+    exp_scores_shifted = np.exp(scores - np.max(scores))
 
-    norm_scores = np.exp(scores -np.max(scores))
-    y_pred = (norm_scores/np.sum(norm_scores)).reshape((num_classes,1))
+    y_pred = (exp_scores_shifted/np.sum(exp_scores_shifted))
     loss += -np.log(y_pred[y[i]])
-    dW += np.dot(y_pred,X[i].reshape((1,dim))).T
+
+    dW += np.dot(y_pred, X[i].reshape(1,-1)).T
     dW[:,y[i]] -= X[i]
-
-  loss /= num_train
-  dW /= num_train
-
-  loss += reg * np.sum(W * W)
-  dW += 2 * reg * W
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################
-
+  loss /= num_train
+  dW /= num_train
+  loss += reg * np.sum(W*W)
+  dW += 2 * reg * W
   return loss, dW
 
 
@@ -79,24 +73,21 @@ def softmax_loss_vectorized(W, X, y, reg):
   num_classes = W.shape[1]
 
   scores = X.dot(W)
-  norm_scores = np.exp(scores - np.max(scores,axis=1,keepdims=True))
-  y_pred = norm_scores/ np.sum(norm_scores,axis=1,keepdims=True)
+  exp_scores_shifted = np.exp(scores - np.max(scores,axis=-1,keepdims=True))
 
+  y_pred = (exp_scores_shifted/np.sum(exp_scores_shifted,axis=-1,keepdims=True)).T
+  
   mask = y == np.arange(num_classes)[:,None]
-  
-  loss += np.sum(-np.log(np.sum(mask.T * y_pred,axis=1)))
-  loss /= num_train
-  
-  dW += np.dot(X.T,y_pred)
-  dW_y = mask.dot(X).T
-  dW -= dW_y
-  dW /= num_train
+  true_probabilities = np.sum(mask * y_pred,axis=0)
+  loss += np.sum(-np.log(true_probabilities))
 
-  loss += reg * np.sum(W * W)
-  dW += 2 * reg * W
+
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################
+
+  loss /= num_train
+  loss += reg * np.sum(W * W)
 
   return loss, dW
 

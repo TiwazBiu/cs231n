@@ -77,12 +77,12 @@ class TwoLayerNet(object):
     # shape (N, C).                                                             #
     #############################################################################
     z1 = X.dot(W1) + b1
-    mask = z1>0
-    a1 = mask*z1
+    mask_z1 = z1>0
+    a1 = mask_z1*z1
     z2 = a1.dot(W2) + b2
     
     scores = z2
-    
+    num_classes = scores.shape[1]
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -99,17 +99,40 @@ class TwoLayerNet(object):
     # in the variable loss, which should be a scalar. Use the Softmax           #
     # classifier loss.                                                          #
     #############################################################################
-    z2_norm = np.exp(z2 - np.max(z2,axis=1,keepdims=True))
-    y_pred = z2_norm/np.sum(z2_norm,axis=1,keepdims=True)
-    num_classes = scores.shape[1]
-    mask = y == np.arange(num_classes)[:,None]
-    loss += np.sum(-np.log(np.sum(mask.T * y_pred,axis=1)))/N
+    # z1.shape==(N,H)
+    # z1 = X.dot(W1) + b1  
+    # mask = z1>0
+    # a1 = mask*z1
+    
+    # z2.shape==(N,C)
+    # z2 = a1.dot(W2) + b2
+    # z2max.shape==(N,1)
+    z2_max = np.max(z2,axis=1,keepdims=True)
+    z2_shifted = z2 - z2_max
+    z2_exp = np.exp(z2_shifted)
+    
+    # den.shape==(N,1)
+    den = np.sum(z2_exp,axis=1,keepdims=True)
+    inv_den = 1.0/den
+
+    # y_pred.shape==(N,C)
+    y_pred = z2_exp*inv_den
+
+    # mask.shape==(C,N)
+    mask_y = y == np.arange(num_classes)[:,None]
+    # mask_y.shape==(N,C)
+    y_masked = mask_y.T * y_pred
+
+    # py.shape==(N,1)
+    py = np.sum(y_masked,axis=1)
+    log_py = -np.log(py)
+
+    loss += np.sum(log_py)/N
     loss += reg*(np.sum(W1*W1)+np.sum(W2*W2))
 
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
-
     # Backward pass: compute gradients
     grads = {}
     #############################################################################
@@ -121,6 +144,34 @@ class TwoLayerNet(object):
     grads['b1'] = np.zeros_like(b1)
     grads['W2'] = np.zeros_like(W2)
     grads['b2'] = np.zeros_like(b2)
+
+    grads['W1'] += 2*reg*W1
+    grads['W2'] += 2*reg*W2
+    
+    dlog_py = np.ones_like(log_py) * 1/N
+    dpy = (dlog_py * (-1.0/py)).reshape(-1,1)
+    # print(dpy.shape)
+    dy_masked = np.tile(dpy,(1,num_classes))
+    # print(dmask_y.shape)
+    # dy_pred==(N,C)
+    dy_pred = dy_masked * mask_y.T
+    # print(dy_masked.shape)
+    dz2_exp = dy_pred * inv_den
+    dinv_den = np.sum(dy_pred*z2_exp,axis=1,keepdims=True)
+    dden = dinv_den * (-1.0/(den*den))
+    dz2_exp += np.tile(dden,(1,num_classes))
+
+    # dz2.shape==(N,C)
+    dz2 = dz2_exp * z2_exp
+
+    grads['W2'] += a1.T.dot(dz2)
+    grads['b2'] += np.sum(dz2,axis=0)
+
+    da1 = dz2.dot(W2.T)
+    dz1 = da1*mask_z1
+    grads['W1'] += X.T.dot(dz1)
+    grads['b1'] += np.sum(dz1,axis=0)
+
 
 
     
@@ -169,7 +220,9 @@ class TwoLayerNet(object):
       # TODO: Create a random minibatch of training data and labels, storing  #
       # them in X_batch and y_batch respectively.                             #
       #########################################################################
-      pass
+      indices = np.random.randint(num_train,size=batch_size)
+      X_batch = X[indices]
+      y_batch = y[indices]
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -184,7 +237,10 @@ class TwoLayerNet(object):
       # using stochastic gradient descent. You'll need to use the gradients   #
       # stored in the grads dictionary defined above.                         #
       #########################################################################
-      pass
+      self.params['W1'] -= learning_rate*grads['W1']
+      self.params['W2'] -= learning_rate*grads['W2']
+      self.params['b1'] -= learning_rate*grads['b1']
+      self.params['b2'] -= learning_rate*grads['b2']
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -229,7 +285,21 @@ class TwoLayerNet(object):
     ###########################################################################
     # TODO: Implement this function; it should be VERY simple!                #
     ###########################################################################
-    pass
+    W1, b1 = self.params['W1'], self.params['b1']
+    W2, b2 = self.params['W2'], self.params['b2']
+
+    z1 = X.dot(W1) + b1  
+    mask = z1>0
+    a1 = mask*z1
+    z2 = a1.dot(W2) + b2
+    z2_max = np.max(z2,axis=1,keepdims=True)
+    z2_shifted = z2 - z2_max
+    num = np.exp(z2_shifted)
+    den = np.sum(num,axis=1,keepdims=True)
+
+    # y_pred.shape==(N,C)
+    y_pred = num/den
+    y_pred = np.argmax(y_pred,axis=1)
     ###########################################################################
     #                              END OF YOUR CODE                           #
     ###########################################################################

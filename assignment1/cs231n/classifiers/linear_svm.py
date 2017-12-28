@@ -78,9 +78,11 @@ def svm_loss_vectorized(W, X, y, reg):
   # Implement a vectorized version of the structured SVM loss, storing the    #
   # result in loss.                                                           #
   #############################################################################
-  # transpose  W
+  # transpose  W,X
   # W.shape will be (C,D)
+  # X.shape will be (N,D)
   W = W.T
+  X = X.T
   dW = dW.T
   num_classes = W.shape[0]
   num_dims = X.shape[0]

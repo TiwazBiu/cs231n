@@ -41,7 +41,7 @@ class TwoLayerNet(object):
     self.params['W2'] = std * np.random.randn(hidden_size, output_size)
     self.params['b2'] = np.zeros(output_size)
 
-  def loss(self, X, y=None, reg=0.0):
+  def loss(self, X, y=None, reg=0.0, dropout_rate = 1.0):
     """
     Compute the loss and gradients for a two layer fully connected neural
     network.
@@ -69,6 +69,14 @@ class TwoLayerNet(object):
     W2, b2 = self.params['W2'], self.params['b2']
     N, D = X.shape
 
+    hidden_size = W1.shape[1]
+    if dropout_rate < 1.0: 
+      hidden_mask = np.random.choice([0,1],hidden_size, \
+                        p=[1.0-dropout_rate,dropout_rate])
+    else:
+      hidden_mask = np.ones(hidden_size)
+    masked_W1 = hidden_mask*W1
+    masked_b1 = hidden_mask*b1
     # Compute the forward pass
     
     #############################################################################
@@ -76,7 +84,7 @@ class TwoLayerNet(object):
     # Store the result in the scores variable, which should be an array of      #
     # shape (N, C).                                                             #
     #############################################################################
-    z1 = X.dot(W1) + b1
+    z1 = X.dot(masked_W1) + masked_b1
     mask_z1 = z1>0
     a1 = mask_z1*z1
     z2 = a1.dot(W2) + b2
@@ -172,7 +180,8 @@ class TwoLayerNet(object):
     grads['W1'] += X.T.dot(dz1)
     grads['b1'] += np.sum(dz1,axis=0)
 
-
+    grads['W1'] *= hidden_mask
+    grads['b1'] *= hidden_mask
 
     
     
@@ -186,7 +195,7 @@ class TwoLayerNet(object):
   def train(self, X, y, X_val, y_val,
             learning_rate=1e-3, learning_rate_decay=0.95,
             reg=5e-6, num_iters=100,
-            batch_size=200, verbose=False):
+            batch_size=200, dropout_rate = 1.0, verbose=False):
     """
     Train this neural network using stochastic gradient descent.
 
@@ -205,8 +214,8 @@ class TwoLayerNet(object):
     - verbose: boolean; if true print progress during optimization.
     """
     num_train = X.shape[0]
-    iterations_per_epoch = max(num_train / batch_size, 1)
-
+    iterations_per_epoch = int(max(num_train / batch_size, 1))
+    print('iterations_per_epoch : ',iterations_per_epoch)
     # Use SGD to optimize the parameters in self.model
     loss_history = []
     train_acc_history = []
@@ -228,7 +237,8 @@ class TwoLayerNet(object):
       #########################################################################
 
       # Compute loss and gradients using the current minibatch
-      loss, grads = self.loss(X_batch, y=y_batch, reg=reg)
+      loss, grads = self.loss(X_batch, y=y_batch, reg=reg, \
+                                dropout_rate=dropout_rate)
       loss_history.append(loss)
 
       #########################################################################
@@ -255,7 +265,6 @@ class TwoLayerNet(object):
         val_acc = (self.predict(X_val) == y_val).mean()
         train_acc_history.append(train_acc)
         val_acc_history.append(val_acc)
-
         # Decay learning rate
         learning_rate *= learning_rate_decay
 

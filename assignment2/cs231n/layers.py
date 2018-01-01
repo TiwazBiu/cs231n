@@ -410,8 +410,7 @@ def conv_forward_naive(x, w, b, conv_param):
                     hb = oh*stride
                     wb = ow*stride
                     fx = xp[i,:,hb:hb+HH,wb:wb+WW]
-                    o = np.sum(fx*wj)
-                    out[i,j,oh,ow] = o+b[j]
+                    out[i,j,oh,ow] = np.sum(fx*wj)+b[j]
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -436,7 +435,33 @@ def conv_backward_naive(dout, cache):
     ###########################################################################
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
-    pass
+    x, w, b, conv_param = cache
+    num_train,C,H,W = x.shape
+    num_filters,C,HH,WW = w.shape
+    stride,pad = conv_param['stride'],conv_param['pad']
+    Hm = int(1 + (H + 2 * pad -HH)/stride)
+    Wm = int(1 + (W + 2 * pad - WW)/stride)
+
+    dw = np.zeros(w.shape)
+    dx = np.zeros(x.shape)
+    xp = np.lib.pad(x,((0,0),(0,0),(pad,pad),(pad,pad)),'constant')
+    dxp = np.zeros(xp.shape)
+    db = np.sum(dout,axis=(0,2,3))
+    assert db.shape == (num_filters,) , "db's shape is wrong" 
+
+    for i in range(num_train):
+        for j in range(num_filters):
+            wj = w[j,:,:,:]
+            for oh in range(Hm):
+                for ow in range(Wm):
+                    hb = oh*stride
+                    wb = ow*stride
+                    fx = xp[i,:,hb:hb+HH,wb:wb+WW]
+                    assert fx.shape == (C,HH,WW)
+                    # out[i,j,oh,ow] = np.sum(fx*wj)+b[j]
+                    dw[j,:,:,:] += fx*dout[i,j,oh,ow]
+                    dxp[i,:,hb:hb+HH,wb:wb+WW] += wj*dout[i,j,oh,ow]
+    dx = dxp[:,:,pad:-pad,pad:-pad]
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -462,7 +487,20 @@ def max_pool_forward_naive(x, pool_param):
     ###########################################################################
     # TODO: Implement the max pooling forward pass                            #
     ###########################################################################
-    pass
+    N, C, H, W = x.shape
+    ph,pw = pool_param['pool_height'],pool_param['pool_width']
+    stride = pool_param['stride']
+    Hm = int(1 + (H - ph)/stride)
+    Wm = int(1 + (W - pw)/stride)
+    out = np.zeros((N,C,Hm,Wm))
+
+    for i in range(N):
+        for j in range(C):
+            for oh in range(Hm):
+                for ow in range(Wm):
+                    hb = oh*stride
+                    wb = ow*stride
+                    out[i,j,oh,ow] = np.max(x[i,j,hb:hb+ph,wb:wb+pw])
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -485,7 +523,24 @@ def max_pool_backward_naive(dout, cache):
     ###########################################################################
     # TODO: Implement the max pooling backward pass                           #
     ###########################################################################
-    pass
+    x, pool_param = cache
+    N, C, H, W = x.shape
+    ph,pw = pool_param['pool_height'],pool_param['pool_width']
+    stride = pool_param['stride']
+    Hm = int(1 + (H - ph)/stride)
+    Wm = int(1 + (W - pw)/stride)
+    dx = np.zeros(x.shape)
+
+    for i in range(N):
+        for j in range(C):
+            for oh in range(Hm):
+                for ow in range(Wm):
+                    hb = oh*stride
+                    wb = ow*stride
+                    # out[i,j,oh,ow] = np.max(x[i,j,hb:hb+ph,wb:wb+pw])
+                    xp = x[i,j,hb:hb+ph,wb:wb+pw]
+                    hm,wm = np.unravel_index(np.argmax(xp),dims=(ph,pw))
+                    dx[i,j,hb+hm,wb+wm] = dout[i,j,oh,ow]
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################

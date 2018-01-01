@@ -5,7 +5,7 @@ import numpy as np
 from cs231n.layers import *
 from cs231n.layer_utils import *
 
-def affine_bn_relu_forward(x, w, b,gamma,beta,bn_param):
+def affine_bn_relu_forward(x, w, b,gamma,beta,bn_param,):
     """
     Convenience layer that perorms an affine transform followed by a 
     batchnorm,then a relu
@@ -294,9 +294,13 @@ class FullyConnectedNet(object):
                 out,cache = affine_relu_forward(activation,
                                             self.params['W'+str(i)],
                                             self.params['b'+str(i)])
-
             activation = out
             caches.append(cache)
+            if self.use_dropout:
+                out, cache = dropout_forward(activation,self.dropout_param)
+                activation = out
+                caches.append(cache)
+
 
         scores,cache = affine_forward(activation, 
                                     self.params['W'+str(num_layers)],
@@ -326,7 +330,7 @@ class FullyConnectedNet(object):
         ############################################################################
         reg = self.reg
         loss,da = softmax_loss(scores,y)
-        dz,dw,db = affine_backward(da,caches[num_layers-1])
+        dz,dw,db = affine_backward(da,caches.pop())
         grads['W'+str(num_layers)] = dw
         grads['b'+str(num_layers)] = db
         
@@ -334,14 +338,15 @@ class FullyConnectedNet(object):
         loss += 0.5*reg*np.sum(w*w)
         grads['W'+str(num_layers)] += reg*w
         
-
         for i in range(num_layers-1,0,-1):
+            if self.use_dropout:
+                dz = dropout_backward(dz,caches.pop())
             if self.use_batchnorm:
-                dz,dw,db,dgamma,dbeta = affine_bn_relu_backward(dz,caches[i-1])
+                dz,dw,db,dgamma,dbeta = affine_bn_relu_backward(dz,caches.pop())
                 grads['gamma'+str(i)] = dgamma
                 grads['beta'+str(i)] = dbeta
             else:
-                dz,dw,db = affine_relu_backward(dz,caches[i-1])
+                dz,dw,db = affine_relu_backward(dz,caches.pop())
             grads['W'+str(i)] = dw
             grads['b'+str(i)] = db
             

@@ -1,4 +1,3 @@
-pass
 from cs231n.layers import *
 from cs231n.fast_layers import *
 
@@ -29,6 +28,7 @@ def affine_relu_backward(dout, cache):
     da = relu_backward(dout, relu_cache)
     dx, dw, db = affine_backward(da, fc_cache)
     return dx, dw, db
+
 
 
 def conv_relu_forward(x, w, b, conv_param):

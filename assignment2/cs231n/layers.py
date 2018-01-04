@@ -562,8 +562,8 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
         old information is discarded completely at every time step, while
         momentum=1 means that new information is never incorporated. The
         default of momentum=0.9 should work well in most situations.
-      - running_mean: Array of shape (D,) giving running mean of features
-      - running_var Array of shape (D,) giving running variance of features
+      - running_mean: Array of shape (C,) giving running mean of features
+      - running_var Array of shape (C,) giving running variance of features
 
     Returns a tuple of:
     - out: Output data, of shape (N, C, H, W)
@@ -578,7 +578,11 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    N, C, H, W = x.shape
+    xp = x.transpose((1,0,2,3)).reshape((C,-1)).T
+    preout,cache = batchnorm_forward(xp, gamma, beta, bn_param)
+    out = preout.T.reshape((C,N,H,W)).transpose((1,0,2,3))
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -608,7 +612,10 @@ def spatial_batchnorm_backward(dout, cache):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    N, C, H, W = dout.shape
+    dpreout = dout.transpose((1,0,2,3)).reshape((C,-1)).T
+    dxp,dgamma,dbeta = batchnorm_backward(dpreout,cache)
+    dx = dxp.T.reshape((C,N,H,W)).transpose((1,0,2,3))
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################

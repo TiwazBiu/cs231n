@@ -137,7 +137,34 @@ class CaptioningRNN(object):
         # defined above to store loss and gradients; grads[k] should give the      #
         # gradients for self.params[k].                                            #
         ############################################################################
-        pass
+        h0 = features.dot(W_proj) + b_proj
+        hdcaptions_in, we_caches = word_embedding_forward(captions_in, W_embed)
+        if self.cell_type == "rnn":
+            h, hh_caches = rnn_forward(hdcaptions_in, h0, Wx, Wh, b)
+
+        out, hv_caches =  temporal_affine_forward(h, W_vocab, b_vocab)
+        loss, dout = temporal_softmax_loss(out, captions_out, mask, verbose=False)
+
+        dh, dW_vocab, db_vocab = temporal_affine_backward(dout, hv_caches)
+
+        if self.cell_type == "rnn":
+            dhdcaptions_in, dh0, dWx, dWh, db = rnn_backward(dh, hh_caches)
+
+        dW_embed = word_embedding_backward(dhdcaptions_in, we_caches)
+
+        db_proj = np.sum(dh0,axis = 0)
+        dW_proj = features.T.dot(dh0)
+
+        grads['W_proj'], grads['b_proj'] = dW_proj, db_proj
+
+        # Word embedding matrix
+        grads['W_embed'] = dW_embed
+
+        # Input-to-hidden, hidden-to-hidden, and biases for the RNN
+        grads['Wx'], grads['Wh'], grads['b'] = dWx, dWh, db
+
+        # Weight and bias for the hidden-to-vocab transformation.
+        grads['W_vocab'], grads['b_vocab'] = dW_vocab, db_vocab
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -199,7 +226,21 @@ class CaptioningRNN(object):
         # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
         # a loop.                                                                 #
         ###########################################################################
-        pass
+        prev_h = features.dot(W_proj) + b_proj
+        start_words = self._start * np.ones(N, dtype=np.int32)
+        captions[:,0] = start_words
+        x = W_embed[start_words]
+        for t in range(1,max_length):
+            if self.cell_type == "rnn":
+               h, _ = rnn_step_forward(x, prev_h, Wx, Wh, b)
+            # N,V
+            out = h.dot(W_vocab) + b_vocab
+            next_words = np.argmax(out, axis = -1)
+            captions[:,t] = next_words
+            
+            x = W_embed[next_words]
+            prev_h = h
+
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################

@@ -142,6 +142,9 @@ class CaptioningRNN(object):
         if self.cell_type == "rnn":
             h, hh_caches = rnn_forward(hdcaptions_in, h0, Wx, Wh, b)
 
+        if self.cell_type == "lstm":
+            h,hh_caches = lstm_forward(hdcaptions_in,h0,Wx,Wh,b)
+
         out, hv_caches =  temporal_affine_forward(h, W_vocab, b_vocab)
         loss, dout = temporal_softmax_loss(out, captions_out, mask, verbose=False)
 
@@ -149,6 +152,9 @@ class CaptioningRNN(object):
 
         if self.cell_type == "rnn":
             dhdcaptions_in, dh0, dWx, dWh, db = rnn_backward(dh, hh_caches)
+
+        if self.cell_type == "lstm":
+            dhdcaptions_in,dh0,dWx,dWh,db = lstm_backward(dh,hh_caches)
 
         dW_embed = word_embedding_backward(dhdcaptions_in, we_caches)
 
@@ -227,12 +233,17 @@ class CaptioningRNN(object):
         # a loop.                                                                 #
         ###########################################################################
         prev_h = features.dot(W_proj) + b_proj
+        if self.cell_type == "lstm":
+            prev_c = np.zeros_like(prev_h)
+
         start_words = self._start * np.ones(N, dtype=np.int32)
         captions[:,0] = start_words
         x = W_embed[start_words]
         for t in range(1,max_length):
             if self.cell_type == "rnn":
-               h, _ = rnn_step_forward(x, prev_h, Wx, Wh, b)
+                h, _ = rnn_step_forward(x,prev_h, Wx, Wh, b)
+            if self.cell_type == "lstm":
+                h, c, _ = lstm_step_forward(x,prev_h, prev_c, Wx, Wh, b)
             # N,V
             out = h.dot(W_vocab) + b_vocab
             next_words = np.argmax(out, axis = -1)
@@ -240,6 +251,8 @@ class CaptioningRNN(object):
             
             x = W_embed[next_words]
             prev_h = h
+            if self.cell_type == "lstm":
+                prev_c = c
 
         ############################################################################
         #                             END OF YOUR CODE                             #

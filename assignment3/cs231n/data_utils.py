@@ -256,7 +256,9 @@ def load_imagenet_val(num=None):
     X = f['X']
     y = f['y']
     class_names = f['label_map'].item()
+    N = len(X)
     if num is not None:
-        X = X[:num]
-        y = y[:num]
+        indices = np.random.choice(N,replace=False,size=num)
+        X = X[indices]
+        y = y[indices]
     return X, y, class_names

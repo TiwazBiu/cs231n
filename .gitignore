@@ -3,3 +3,5 @@
 *.json
 assignment3/cs231n/datasets/coco_captioning/*
 assignment3/Gans.ipynb
+assignment3/cs231n/datasets/*
+datasets/*
